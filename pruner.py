@@ -1,15 +1,17 @@
+#!/usr/bin/python
+
 import os
 import sys
 import fileinput
 import re
 import subprocess
-
-walk_dir = sys.argv[1]
+import configparser
+import recipe
+import contextlib
 
 def removeUnusedIncludes(path):
     print('\t- file %s' % (path))
     
-    fileSize = os.path.getsize(path)
     with open (path, 'r') as f:
         fileContent = f.read()
 
@@ -20,15 +22,26 @@ def removeUnusedIncludes(path):
             for lineFromWorkingCopy in fileinput.input(path, inplace=1):
                 if not lineContent == lineFromWorkingCopy.rstrip('\n'):
                     sys.stdout.write(lineFromWorkingCopy)
-            subprocess.call("g++ -E -std=c++11  " + path + " >preproc_out", shell=True);
-            if os.path.getsize("preproc_out") < fileSize: 
-                if subprocess.call("g++ -c -std=c++11 " + path, shell=True):
+            with changeWorkingDir():
+                if subprocess.call(recipe.makeRecipe(path), stderr=open(os.devnull, 'wb'), shell=True):
                     with open(path, 'w') as f:
                         f.write(backup)
-
     return
 
-for root, subdirs, files in os.walk(walk_dir):
+@contextlib.contextmanager
+def changeWorkingDir():
+    objPath = './objs'
+    startingDirectory = os.getcwd()
+    os.makedirs(objPath, exist_ok=True)
+    try:
+        os.chdir(objPath)
+        yield
+    finally:
+        os.chdir(startingDirectory)
+
+config = configparser.ConfigParser()
+config.read('config.ini')
+for root, subdirs, files in os.walk(config['DEFAULT']['WorkingDir']):
     if '.git' in subdirs:
         subdirs.remove('.git')
 
