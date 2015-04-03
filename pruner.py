@@ -8,10 +8,9 @@ import subprocess
 import configparser
 import recipe
 import contextlib
+import math
 
 def removeUnusedIncludes(path):
-    print('\t- file %s' % (path))
-    
     for include in generateIncludeList(path):
         backup = readFile(path)
         deleteIncludeFromFile(path, include)
@@ -59,9 +58,24 @@ def changeWorkingDir():
     finally:
         os.chdir(startingDirectory)
 
+def countFilesRecursively(path):
+    count = 0
+    for root, subdirs, files in os.walk(path):
+        for filename in files:
+            ext = os.path.splitext(filename)[-1].lower()
+            if(ext == '.cpp'):
+                count += 1
+    return count
+
 config = configparser.ConfigParser()
 config.read('config.ini')
-for root, subdirs, files in os.walk(config['DEFAULT']['WorkingDir']):
+workingDirectory = config['DEFAULT']['WorkingDir']
+
+processedFiles = 0
+numberOfFiles = countFilesRecursively(workingDirectory)
+progressLineLength = 25
+
+for root, subdirs, files in os.walk(workingDirectory):
     if '.git' in subdirs:
         subdirs.remove('.git')
 
@@ -71,3 +85,8 @@ for root, subdirs, files in os.walk(config['DEFAULT']['WorkingDir']):
         ext = os.path.splitext(filename)[-1].lower()
         if(ext == '.cpp'):
             removeUnusedIncludes(file_path);
+            processedFiles += 1
+            progress = math.floor(processedFiles / numberOfFiles * progressLineLength)
+            print('total:\t[%s%s]' % ('#'*progress, ' '*(progressLineLength - progress)), end='\r')        
+
+print('\nDONE!')
