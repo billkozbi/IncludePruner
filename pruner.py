@@ -12,20 +12,40 @@ import contextlib
 def removeUnusedIncludes(path):
     print('\t- file %s' % (path))
     
+    for include in generateIncludeList(path):
+        backup = readFile(path)
+        deleteIncludeFromFile(path, include)
+        if isIncludeNecessary(path):
+            writeToFile(path, backup)
+    return
+
+def isIncludeNecessary(path):
+    with changeWorkingDir():
+        return subprocess.call(recipe.makeRecipe(path), 
+                           stderr=open(os.devnull, 'wb'), shell=True)
+
+def deleteIncludeFromFile(path, include):
+    for line in fileinput.input(path, inplace=1):
+        if not include == line.rstrip('\n'):
+            sys.stdout.write(line)
+    return
+
+def generateIncludeList(path):
+    includes = []
+    for line in readFile(path).split('\n'):
+        if re.match( r'^#include.*', line):
+            includes.append(line)
+    return includes
+
+def readFile(path):
+    fileContent = ""
     with open (path, 'r') as f:
         fileContent = f.read()
+    return fileContent
 
-    for lineContent in fileContent.split('\n'):
-        if re.match( r'^#include.*', lineContent):
-            with open(path, 'r') as f:
-                backup = f.read();
-            for lineFromWorkingCopy in fileinput.input(path, inplace=1):
-                if not lineContent == lineFromWorkingCopy.rstrip('\n'):
-                    sys.stdout.write(lineFromWorkingCopy)
-            with changeWorkingDir():
-                if subprocess.call(recipe.makeRecipe(path), stderr=open(os.devnull, 'wb'), shell=True):
-                    with open(path, 'w') as f:
-                        f.write(backup)
+def writeToFile(path, content):
+    with open(path, 'w') as f:
+        f.write(content)
     return
 
 @contextlib.contextmanager
