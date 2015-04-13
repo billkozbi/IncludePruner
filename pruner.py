@@ -6,28 +6,23 @@ import fileinput
 import re
 import subprocess
 import configparser
-import recipe
 import contextlib
 import math
 
+import Recipe
+import FileUtils
+
 def removeUnusedIncludes(path):
     for include in generateIncludeList(path):
-        backup = readFile(path)
-        deleteIncludeFromFile(path, include)
-        if isIncludeNecessary(path):
-            writeToFile(path, backup)
-    return
+        f = FileUtils.FileWithBackup(path)
+        f.deleteLine(include)
+        if not canCompileToObjectCode(path):
+            f.restore()
 
-def isIncludeNecessary(path):
-    with changeWorkingDir():
-        return subprocess.call(recipe.makeRecipe(path), 
-                           stderr=open(os.devnull, 'wb'), shell=True)
-
-def deleteIncludeFromFile(path, include):
-    for line in fileinput.input(path, inplace=1):
-        if not include == line.rstrip('\n'):
-            sys.stdout.write(line)
-    return
+def canCompileToObjectCode(path):
+    return not subprocess.call(Recipe.makeRecipe(path), 
+                       stderr=open(os.devnull, 'wb'), 
+                       shell=True)
 
 def generateIncludeList(path):
     includes = []
@@ -42,18 +37,12 @@ def readFile(path):
         fileContent = f.read()
     return fileContent
 
-def writeToFile(path, content):
-    with open(path, 'w') as f:
-        f.write(content)
-    return
-
 @contextlib.contextmanager
-def changeWorkingDir():
-    objPath = './objs'
+def changeWorkingDir(path):
     startingDirectory = os.getcwd()
-    os.makedirs(objPath, exist_ok=True)
+    os.makedirs(path, exist_ok=True)
     try:
-        os.chdir(objPath)
+        os.chdir(path)
         yield
     finally:
         os.chdir(startingDirectory)
