@@ -9,34 +9,35 @@ import configparser
 import contextlib
 import math
 
-import Recipe
 import FileUtils
+import Recipe
 
-def removeUnusedIncludes(path):
-    for include in generateIncludeList(path):
-        f = FileUtils.FileWithBackup(path)
-        f.deleteLine(include)
-        if not canCompileToObjectCode(path):
-            f.restore()
+class Pruner:
+    def __init__(self, path, recipe):
+        self.pathToFile = path
+        self.recipeToCompilePath = recipe
 
-def canCompileToObjectCode(path):
-    return not subprocess.call(Recipe.makeRecipe(path), 
-                       stderr=open(os.devnull, 'wb'), 
-                       shell=True)
+    def removeUnusedIncludes(self):
+        for include in self.__generateIncludeList():
+            f = FileUtils.FileWithBackup(self.pathToFile)
+            f.deleteLine(include)
+            if not self.__canCompileToObjectCode():
+                f.restore()
 
-def generateIncludeList(path):
-    includes = []
-    for line in readFile(path).split('\n'):
-        if re.match( r'^#include.*', line):
-            includes.append(line)
-    return includes
+    def __canCompileToObjectCode(self):
+        #r = Recipe.Reciper(config['DEFAULT']['PathToPrintedMakefile'])
+        return not subprocess.call(self.recipeToCompilePath, 
+                                   stderr=open(os.devnull, 'wb'), 
+                                   shell=True)
 
-def readFile(path):
-    fileContent = ""
-    with open (path, 'r') as f:
-        fileContent = f.read()
-    return fileContent
+    def __generateIncludeList(self):
+        includes = []
+        for line in FileUtils.readFile(self.pathToFile).split('\n'):
+            if re.match( r'^#include.*', line):
+                includes.append(line)
+        return includes
 
+    
 @contextlib.contextmanager
 def changeWorkingDir(path):
     startingDirectory = os.getcwd()
@@ -58,8 +59,8 @@ def countFilesRecursively(path):
 
 config = configparser.ConfigParser()
 config.read('config.ini')
-workingDirectory = config['DEFAULT']['WorkingDir']
 
+workingDirectory = config['DEFAULT']['WorkingDir']
 processedFiles = 0
 numberOfFiles = countFilesRecursively(workingDirectory)
 progressLineLength = 25
@@ -69,11 +70,12 @@ for root, subdirs, files in os.walk(workingDirectory):
         subdirs.remove('.git')
 
     for filename in files:
-        file_path = os.path.join(root, filename)
+        path = os.path.join(root, filename)
 
         ext = os.path.splitext(filename)[-1].lower()
         if(ext == '.cpp'):
-            removeUnusedIncludes(file_path);
+            p = Pruner(path, "g++ -c %s" % path)
+            p.removeUnusedIncludes()
             processedFiles += 1
             progress = math.floor(processedFiles / numberOfFiles * progressLineLength)
             print('total:\t[%s%s]' % ('#'*progress, ' '*(progressLineLength - progress)), end='\r')        

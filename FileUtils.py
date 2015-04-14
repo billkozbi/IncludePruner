@@ -19,7 +19,9 @@ class FileWithBackup:
             if not lineContent == line.rstrip('\n'):
                 sys.stdout.write(line)
 
-#f = FileWithBackup("testfile")
-#f.deleteLine("ala ma kota")
-#f.deleteLine("ala nie ma kota")
-#f.deleteLine("dsdha")
+def readFile(path):
+    fileContent = ""
+    with open (path, 'r') as f:
+        fileContent = f.read()
+    return fileContent
+
