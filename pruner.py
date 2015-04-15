@@ -25,7 +25,6 @@ class Pruner:
                 f.restore()
 
     def __canCompileToObjectCode(self):
-        #r = Recipe.Reciper(config['DEFAULT']['PathToPrintedMakefile'])
         return not subprocess.call(self.recipeToCompilePath, 
                                    stderr=open(os.devnull, 'wb'), 
                                    shell=True)
@@ -48,12 +47,14 @@ def changeWorkingDir(path):
     finally:
         os.chdir(startingDirectory)
 
-def countFilesRecursively(path):
+def countFilesRecursively(path, filenameFilter=None):
+    if filenameFilter is None:
+        filenameFilter = ".*"
     count = 0
     for root, subdirs, files in os.walk(path):
         for filename in files:
-            ext = os.path.splitext(filename)[-1].lower()
-            if(ext == '.cpp'):
+            filenameFilterRegex = r"%s" % filenameFilter
+            if re.match(filenameFilterRegex, filename):
                 count += 1
     return count
 
@@ -62,7 +63,7 @@ config.read('config.ini')
 
 workingDirectory = config['DEFAULT']['WorkingDir']
 processedFiles = 0
-numberOfFiles = countFilesRecursively(workingDirectory)
+numberOfFiles = countFilesRecursively(workingDirectory, ".*\.cpp")
 progressLineLength = 25
 
 for root, subdirs, files in os.walk(workingDirectory):
